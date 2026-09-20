@@ -4,7 +4,7 @@
 set -e
 
 # Configuration Variables
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/backend
 SERVICE_NAME=$(grep -oP '^SERVICE_NAME=\K.*' "${APP_DIR}/.env")
 SYSTEMD_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 APP_USER="${USER}" # Defaults to current user
@@ -55,7 +55,7 @@ After=network.target
 
 [Service]
 User=${APP_USER}
-WorkingDirectory=${APP_DIR}/backend/weather-backend
+WorkingDirectory=${APP_DIR}/weather-backend
 ExecStart=${UVICORN_EXEC} main:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
 RestartSec=3
