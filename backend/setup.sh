@@ -9,11 +9,12 @@ SERVICE_NAME=$(grep -oP '^SERVICE_NAME=\K.*' "${APP_DIR}/.env")
 SYSTEMD_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 APP_USER="${USER}" # Defaults to current user
 
-echo "=========================================="
+echo "=================================================="
 echo " Starting Weather Station Backend w/ Poetry Setup "
 echo " Project Directory: ${APP_DIR}"
 echo " Service User:      ${APP_USER}"
-echo "=========================================="
+echo " Service Name:     ${SERVICE_NAME}"
+echo "=================================================="
 
 # 1. Ensure Python 3 is installed
 if ! command -v python3 &> /dev/null; then

@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo APP_DIR: ${APP_DIR}
 SERVICE_NAME=$(grep -oP '^SERVICE_NAME=\K.*' "${APP_DIR}/.env")
+
+echo "=================================================="
+echo " Deinstalling Weather Station Backend Service "
+echo " Project Directory: ${APP_DIR}"
+echo " Service Name:     ${SERVICE_NAME}"
+echo "=================================================="
 
 exit 1
 sudo systemctl stop ${SERVICE_NAME}
