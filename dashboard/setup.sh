@@ -48,7 +48,7 @@ poetry install --no-root
 
 # Get absolute path to the virtual environment created by Poetry
 POETRY_VENV="$(poetry env info --path)"
-PYTHON_EXEC="${POETRY_VENV}/bin/python3"
+STREAMLIT_EXEC="${POETRY_VENV}/bin/streamlit"
 
 # 6. Generate systemd service file
 echo "Configuring systemd service..."
@@ -60,7 +60,7 @@ After=network.target
 [Service]
 User=${APP_USER}
 WorkingDirectory=${APP_DIR}/weather-bot
-ExecStart=${PYTHON_EXEC} streamlit run main.py --server.port ${APP_PORT}
+ExecStart=${STREAMLIT_EXEC} run main.py --server.port ${APP_PORT}
 Restart=always
 RestartSec=3
 Environment=\"PATH=${POETRY_VENV}/bin\"
