@@ -1,3 +1,5 @@
+"""Application entry point and MongoDB lifecycle management."""
+
 from contextlib import asynccontextmanager
 import os
 
@@ -11,7 +13,11 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage the lifespan of the FastAPI application."""
+    """Open MongoDB when the application starts and close it on shutdown.
+
+    MongoDB connection settings are read from environment variables. The
+    database handle is attached to the FastAPI application for route access.
+    """
     mongodb_user = os.getenv("MONDODB_USER", "weather")
     mongodb_password = os.getenv("MONGODB_PASSWORD", "")
     mongodb_host = os.getenv("MONGODB_HOST", "localhost")

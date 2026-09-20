@@ -1,3 +1,5 @@
+"""Pydantic response and persistence models for the weather API."""
+
 from datetime import datetime
 from typing_extensions import Annotated
 
@@ -7,14 +9,14 @@ from utils import oid_to_str
 
 
 class SuccessResponse(BaseModel):
-    """Pydantic model for a successful response."""
+    """Response returned after a write operation succeeds."""
 
     message: str
     timestamp: datetime = datetime.now()
 
 
 class HealthInfo(BaseModel):
-    """Pydantic model for health information."""
+    """Status of the API and its MongoDB connection."""
 
     api_status: str
     db_status: str
@@ -22,7 +24,7 @@ class HealthInfo(BaseModel):
 
 
 class SeriesEntry(BaseModel):
-    """Pydantic model for a series entry."""
+    """Metadata describing a measured or derived weather series."""
 
     name: str
     unit: str
@@ -31,7 +33,7 @@ class SeriesEntry(BaseModel):
 
 
 class WeatherEntry(BaseModel):
-    """Pydantic model for a weather entry."""
+    """Raw weather value as stored in MongoDB."""
 
     series: Annotated[str, BeforeValidator(oid_to_str)]
     date: datetime
@@ -39,7 +41,7 @@ class WeatherEntry(BaseModel):
 
 
 class MeasurementEntry(BaseModel):
-    """Pydantic model for a measurement entry."""
+    """Weather value enriched with the series name and unit."""
 
     name: str
     unit: str
