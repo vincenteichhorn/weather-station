@@ -95,6 +95,29 @@ async def get_report(db: AsyncIOMotorDatabase, start_date: datetime = None, end_
     return report
 
 
+async def get_series_measurements(
+    db: AsyncIOMotorDatabase, series_short: str, start_date: datetime = None, end_date: datetime = None
+) -> list[MeasurementEntry]:
+    """Retrieve weather data for a specific series within a specified date range from the weather collection."""
+    series_entry = await db["series"].find_one({"shorts": series_short})
+    if not series_entry:
+        return []
+
+    series_id = series_entry["_id"]
+    if start_date is None:
+        start_date = datetime.now() - timedelta(days=7)
+    if end_date is None:
+        end_date = datetime.now()
+
+    measurements_cursor = db["weather"].find({"series": series_id, "date": {"$gte": start_date, "$lte": end_date}}, projection={"_id": False}).sort("date", 1)
+
+    measurements: list[MeasurementEntry] = []
+    async for measurement in measurements_cursor:
+        measurements.append(MeasurementEntry(name=series_entry["name"], unit=series_entry["unit"], **measurement))
+
+    return measurements
+
+
 async def add_weather_entry(db: AsyncIOMotorDatabase, weather_entry: dict):
     """Add a new weather entry to the weather collection."""
     series: dict[ObjectId, SeriesEntry] = {}

@@ -39,6 +39,12 @@ async def read_weather_report(request: Request, start_date: datetime = None, end
     return await weather.get_report(db, start_date, end_date)
 
 
+@router.get("/weather/{series_short}", response_model=list[MeasurementEntry])
+async def read_weather_by_series(request: Request, series_short: str, start_date: datetime = None, end_date: datetime = None):
+    db = request.app.mongodb
+    return await weather.get_series_measurements(db, series_short, start_date, end_date)
+
+
 @router.post("/weather/add", response_model=SuccessResponse)
 async def add_weather_entry(request: Request):
     db = request.app.mongodb
