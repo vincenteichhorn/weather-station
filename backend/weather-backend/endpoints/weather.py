@@ -8,6 +8,22 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from derived_metrics import DERIVED_METRICS, DERIVED_METRICS_BY_SHORT, DerivedMetric
 from models import MeasurementEntry, SeriesEntry, WeatherEntry
 
+VALID_DENSITIES = {"raw", "daily", "weekly", "monthly"}
+
+
+def _validate_density(density: str) -> str:
+    if density not in VALID_DENSITIES:
+        raise ValueError(f"Unknown density '{density}'. Use raw, daily, weekly, or monthly.")
+    return density
+
+
+def _bucket_expression(density: str) -> dict:
+    if density == "daily":
+        return {"$dateTrunc": {"date": "$date", "unit": "day"}}
+    if density == "weekly":
+        return {"$dateTrunc": {"date": "$date", "unit": "week", "startOfWeek": "monday"}}
+    return {"$dateTrunc": {"date": "$date", "unit": "month"}}
+
 
 def _get_raw_measurements(series: dict[ObjectId, SeriesEntry], measurements: dict[ObjectId, dict]) -> dict[str, float]:
     """Extract temperature, humidity, and pressure values from latest data."""
@@ -103,16 +119,21 @@ async def get_report(db: AsyncIOMotorDatabase, start_date: datetime = None, end_
 
 
 async def get_series_measurements(
-    db: AsyncIOMotorDatabase, series_short: str, start_date: datetime = None, end_date: datetime = None
+    db: AsyncIOMotorDatabase,
+    series_short: str,
+    start_date: datetime = None,
+    end_date: datetime = None,
+    density: str = "raw",
 ) -> list[MeasurementEntry]:
     """Retrieve raw or derived measurements for one series.
 
     If no range is supplied, the previous seven days ending at the current
     time are used. Unknown series names return an empty list.
     """
+    density = _validate_density(density)
     derived_metric = _find_derived_metric(series_short)
     if derived_metric:
-        return await _get_derived_series_measurements(db, derived_metric, start_date, end_date)
+        return await _get_derived_series_measurements(db, derived_metric, start_date, end_date, density)
 
     series_entry = await db["series"].find_one({"shorts": series_short})
     if not series_entry:
@@ -124,17 +145,35 @@ async def get_series_measurements(
     if end_date is None:
         end_date = datetime.now()
 
-    measurements_cursor = db["weather"].find({"series": series_id, "date": {"$gte": start_date, "$lte": end_date}}, projection={"_id": False}).sort("date", 1)
+    if density == "raw":
+        measurements_cursor = (
+            db["weather"].find({"series": series_id, "date": {"$gte": start_date, "$lte": end_date}}, projection={"_id": False}).sort("date", 1)
+        )
+        return [MeasurementEntry(name=series_entry["name"], unit=series_entry["unit"], **measurement) async for measurement in measurements_cursor]
 
-    measurements: list[MeasurementEntry] = []
-    async for measurement in measurements_cursor:
-        measurements.append(MeasurementEntry(name=series_entry["name"], unit=series_entry["unit"], **measurement))
-
-    return measurements
+    pipeline = [
+        {
+            "$match": {
+                "series": series_id,
+                "date": {"$gte": start_date, "$lte": end_date},
+                "value": {"$type": "number"},
+            }
+        },
+        {"$group": {"_id": _bucket_expression(density), "value": {"$avg": "$value"}}},
+        {"$sort": {"_id": 1}},
+    ]
+    return [
+        MeasurementEntry(name=series_entry["name"], unit=series_entry["unit"], date=entry["_id"], value=entry["value"])
+        async for entry in db["weather"].aggregate(pipeline)
+    ]
 
 
 async def _get_derived_series_measurements(
-    db: AsyncIOMotorDatabase, metric: DerivedMetric, start_date: datetime = None, end_date: datetime = None
+    db: AsyncIOMotorDatabase,
+    metric: DerivedMetric,
+    start_date: datetime = None,
+    end_date: datetime = None,
+    density: str = "raw",
 ) -> list[MeasurementEntry]:
     """Calculate one derived metric from matching temperature and humidity values."""
     if start_date is None:
@@ -143,7 +182,7 @@ async def _get_derived_series_measurements(
         end_date = datetime.now()
 
     source_series = await db["series"].find({"shorts": {"$in": ["temp", "hum"]}}).to_list(length=None)
-    measurements_by_date: dict[datetime, dict[str, float]] = {}
+    measurements_by_date: dict[datetime, dict[str, list[float]]] = {}
     for source_series_entry in source_series:
         source_short = next(short for short in ("temp", "hum") if short in source_series_entry["shorts"])
         cursor = db["weather"].find(
@@ -154,17 +193,28 @@ async def _get_derived_series_measurements(
             projection={"_id": False},
         )
         async for measurement in cursor:
-            measurements_by_date.setdefault(measurement["date"], {})[source_short] = float(measurement["value"])
+            bucket = measurement["date"]
+            if density != "raw":
+                if density == "daily":
+                    bucket = bucket.replace(hour=0, minute=0, second=0, microsecond=0)
+                elif density == "weekly":
+                    bucket = (bucket - timedelta(days=bucket.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                else:
+                    bucket = bucket.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            measurements_by_date.setdefault(bucket, {}).setdefault(source_short, []).append(float(measurement["value"]))
 
     return [
         MeasurementEntry(
             name=metric.name,
             unit=metric.unit,
             date=date,
-            value=metric.calculate(values["temp"], values["hum"]),
+            value=metric.calculate(
+                sum(values["temp"]) / len(values["temp"]),
+                sum(values["hum"]) / len(values["hum"]),
+            ),
         )
         for date, values in sorted(measurements_by_date.items())
-        if "temp" in values and "hum" in values
+        if "temp" in values and "hum" in values and values["temp"] and values["hum"]
     ]
 
 

@@ -1,6 +1,7 @@
 """HTTP routes for the weather station API."""
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Request
 from endpoints import health, series, weather
@@ -52,10 +53,16 @@ async def read_weather_report(request: Request, start_date: datetime = None, end
 
 
 @router.get("/weather/{series_short}", response_model=list[MeasurementEntry])
-async def read_weather_by_series(request: Request, series_short: str, start_date: datetime = None, end_date: datetime = None):
+async def read_weather_by_series(
+    request: Request,
+    series_short: str,
+    start_date: datetime = None,
+    end_date: datetime = None,
+    density: Literal["raw", "daily", "weekly", "monthly"] = "raw",
+):
     """Return measurements for one series and optional date range."""
     db = request.app.mongodb
-    return await weather.get_series_measurements(db, series_short, start_date, end_date)
+    return await weather.get_series_measurements(db, series_short, start_date, end_date, density)
 
 
 @router.post("/weather/add", response_model=SuccessResponse)

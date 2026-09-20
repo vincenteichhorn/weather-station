@@ -41,10 +41,14 @@ class WeatherApi:
             raise WeatherApiError("The latest weather response has an unexpected format")
         return response
 
-    def get_measurements(self, series_short: str, start_date: date, end_date: date) -> list[dict]:
+    def get_measurements(self, series_short: str, start_date: date, end_date: date, density: str = "raw") -> list[dict]:
         response = self._get(
             f"weather/{series_short}",
-            {"start_date": f"{start_date.isoformat()}T00:00:00", "end_date": f"{end_date.isoformat()}T23:59:59"},
+            {
+                "start_date": f"{start_date.isoformat()}T00:00:00",
+                "end_date": f"{end_date.isoformat()}T23:59:59",
+                "density": density,
+            },
         )
         if not isinstance(response, list):
             raise WeatherApiError("The measurements response has an unexpected format")
