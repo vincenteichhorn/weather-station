@@ -5,12 +5,12 @@ set -e
 
 # Configuration Variables
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_NAME="fastapi"
+SERVICE_NAME="weather-backend"
 SYSTEMD_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 APP_USER="${USER}" # Defaults to current user
 
 echo "=========================================="
-echo " Starting FastAPI + Poetry Setup "
+echo " Starting Weather Station Backend w/ Poetry Setup "
 echo " Project Directory: ${APP_DIR}"
 echo " Service User:      ${APP_USER}"
 echo "=========================================="
@@ -55,7 +55,7 @@ After=network.target
 
 [Service]
 User=${APP_USER}
-WorkingDirectory=${APP_DIR}
+WorkingDirectory=${APP_DIR}/backend/weather-backend
 ExecStart=${UVICORN_EXEC} main:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
 RestartSec=3
