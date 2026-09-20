@@ -11,7 +11,13 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.mongodb_client = AsyncIOMotorClient(f"mongodb://{os.getenv('MONGODB_HOST', 'localhost')}:{os.getenv('MONGODB_PORT', '27017')}")
+    """Manage the lifespan of the FastAPI application."""
+    mongodb_user = os.getenv("MONDODB_USER", "weather")
+    mongodb_password = os.getenv("MONGODB_PASSWORD", "")
+    mongodb_host = os.getenv("MONGODB_HOST", "localhost")
+    mongodb_port = os.getenv("MONGODB_PORT", "27017")
+    mongodb_auth_source = os.getenv("MONGODB_AUTH_SOURCE", "admin")
+    app.mongodb_client = AsyncIOMotorClient(f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}?authSource={mongodb_auth_source }")
     app.mongodb = app.mongodb_client[os.getenv("MONGODB_DB", "weather_db")]
     print("Connected to MongoDB")
 
