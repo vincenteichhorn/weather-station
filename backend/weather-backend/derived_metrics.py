@@ -46,15 +46,23 @@ def calculate_absolute_humidity(temperature: float, humidity: float) -> float:
 
 
 def calculate_real_temperature(temperature: float, humidity: float) -> float:
-    """Calculate the heat index exposed as perceived temperature.
+    """Calculate an estimated perceived temperature.
+
+    The heat-index formula is only meaningful for warm conditions. A weather
+    station without wind speed cannot calculate a reliable wind-chill value,
+    so cold temperatures are reported unchanged instead of producing a
+    misleading result from the heat-index polynomial.
 
     Args:
         temperature: Air temperature in degrees Celsius.
         humidity: Relative humidity in percent.
 
     Returns:
-        The perceived temperature in degrees Celsius.
+        The estimated perceived temperature in degrees Celsius.
     """
+    if temperature < 20:
+        return temperature
+
     return (
         -8.784695
         + 1.61139411 * temperature
