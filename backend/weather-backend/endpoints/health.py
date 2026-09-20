@@ -10,7 +10,6 @@ async def get_health(db: AsyncIOMotorDatabase) -> dict:
             "exception": None,
         }
     except Exception as exception:
-        print(f"Database connection error: {exception}")
         return {
             "api_status": "OK",
             "db_status": "DB connection not established",

@@ -20,12 +20,11 @@ async def add_weather_entry(db: AsyncIOMotorDatabase, weather_entry: dict) -> di
         series[series_entry["_id"]] = SeriesEntry(**series_entry)
 
     current_time = datetime.now()
-    print(series)
     for series_id, series_entry in series.items():
         for short in series_entry.shorts:
             if short in weather_entry:
                 new_entry: WeatherEntry = {"series": series_id, "date": current_time, "value": weather_entry[short]}
-                weather_collection = db["weather_test"]
+                weather_collection = db["weather"]
                 await weather_collection.insert_one(new_entry)
 
     return {

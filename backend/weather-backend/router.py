@@ -30,5 +30,4 @@ async def add_weather_entry(request: Request):
     db = request.app.mongodb
     form_data = await request.form()
     station_log = dict(form_data)
-    print(f"Received weather entry: {station_log}")
     return await weather.add_weather_entry(db, station_log)
