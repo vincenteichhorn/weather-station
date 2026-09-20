@@ -41,6 +41,7 @@ fi
 
 # 5. Install project dependencies from lockfile
 echo "Installing project dependencies with Poetry..."
+cd "${APP_DIR}"
 poetry install --no-root
 
 # Get absolute path to the virtual environment created by Poetry

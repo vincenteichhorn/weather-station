@@ -9,7 +9,6 @@ echo " Project Directory: ${APP_DIR}"
 echo " Service Name:     ${SERVICE_NAME}"
 echo "=================================================="
 
-exit 1
 sudo systemctl stop ${SERVICE_NAME}
 sudo systemctl disable ${SERVICE_NAME}
 
