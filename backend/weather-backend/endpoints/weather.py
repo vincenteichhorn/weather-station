@@ -32,14 +32,11 @@ async def get_latest(db: AsyncIOMotorDatabase) -> list[MeasurementEntry]:
         dew_point = temp - ((100 - hum) / 5)
         latest_weather.append(MeasurementEntry(name="Taupunkt", unit="°C", date=datetime.now(), value=dew_point))
 
-    if "temp" in raw_measurements and "bar" in raw_measurements:
+    if "temp" in raw_measurements and "hum" in raw_measurements:
         temp = raw_measurements["temp"]
-        bar = raw_measurements["bar"]
-        # Convert temperature from Celsius to Kelvin for the formula
+        hum = raw_measurements["hum"]
         temp_kelvin = temp + 273.15
-        # Calculate the vapor pressure using the Magnus formula
         vapor_pressure = 6.112 * (10 ** ((7.5 * temp) / (237.7 + temp))) * (hum / 100)
-        # Calculate the absolute humidity in g/m³
         absolute_humidity = (vapor_pressure * 100) / (461.5 * temp_kelvin) * 1000
         latest_weather.append(MeasurementEntry(name="Absolute Feuchtigkeit", unit="g/m³", date=datetime.now(), value=absolute_humidity))
 
