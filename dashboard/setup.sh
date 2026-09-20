@@ -59,7 +59,7 @@ After=network.target
 
 [Service]
 User=${APP_USER}
-WorkingDirectory=${APP_DIR}/weather-bot
+WorkingDirectory=${APP_DIR}/weather-dashboard
 ExecStart=${STREAMLIT_EXEC} run main.py --server.port ${APP_PORT}
 Restart=always
 RestartSec=3
