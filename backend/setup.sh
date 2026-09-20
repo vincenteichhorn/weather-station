@@ -5,7 +5,7 @@ set -e
 
 # Configuration Variables
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_NAME="weather-backend"
+SERVICE_NAME=$(grep -oP '^SERVICE_NAME=\K.*' "${APP_DIR}/.env")
 SYSTEMD_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 APP_USER="${USER}" # Defaults to current user
 
