@@ -1,7 +1,9 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Request
 from endpoints import health, series, weather
 
-from models import SeriesEntry, SuccessResponse, WeatherEntry, HealthInfo
+from models import MeasurementEntry, SeriesEntry, SuccessResponse, WeatherEntry, HealthInfo
 
 router = APIRouter()
 
@@ -19,10 +21,22 @@ async def read_series(request: Request):
     return await series.get_series(db)
 
 
-@router.get("/weather/", response_model=WeatherEntry)
+@router.get("/weather/", response_model=list[MeasurementEntry])
 async def read_weather(request: Request):
     db = request.app.mongodb
     return await weather.get_latest(db)
+
+
+@router.get("/weather/latest", response_model=list[MeasurementEntry])
+async def read_latest_weather(request: Request):
+    db = request.app.mongodb
+    return await weather.get_latest(db)
+
+
+@router.get("/weather/report", response_model=dict[str, list[MeasurementEntry]])
+async def read_weather_report(request: Request, start_date: datetime = None, end_date: datetime = None):
+    db = request.app.mongodb
+    return await weather.get_report(db, start_date, end_date)
 
 
 @router.post("/weather/add", response_model=SuccessResponse)
@@ -30,4 +44,8 @@ async def add_weather_entry(request: Request):
     db = request.app.mongodb
     form_data = await request.form()
     station_log = dict(form_data)
-    return await weather.add_weather_entry(db, station_log)
+    await weather.add_weather_entry(db, station_log)
+    return {
+        "message": "Weather entry added successfully.",
+        "timestamp": datetime.now(),
+    }

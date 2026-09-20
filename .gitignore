@@ -1,3 +1,6 @@
+.vscode
+
 backend/.env
 backend/.vscode
-.vscode
+
+bot/.env

@@ -36,3 +36,12 @@ class WeatherEntry(BaseModel):
     series: Annotated[str, BeforeValidator(oid_to_str)]
     date: datetime
     value: float
+
+
+class MeasurementEntry(BaseModel):
+    """Pydantic model for a measurement entry."""
+
+    name: str
+    unit: str
+    date: datetime
+    value: float
