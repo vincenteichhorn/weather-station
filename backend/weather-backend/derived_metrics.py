@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import math
 
 MetricFunction = Callable[[float, float], float]
 """Callable type used to calculate a derived metric from temperature and humidity."""
@@ -60,20 +61,39 @@ def calculate_real_temperature(temperature: float, humidity: float) -> float:
     Returns:
         The estimated perceived temperature in degrees Celsius.
     """
-    if temperature < 10:
+    if not 0 <= humidity <= 100:
+        raise ValueError("humidity must be between 0 and 100 percent")
+
+    t = temperature * 9 / 5 + 32  # the NWS regression works in Fahrenheit
+    rh = humidity
+
+    # The heat index is only defined for warm air (>= 80 °F, about 26.7 °C).
+    if t < 80:
         return temperature
 
-    return (
-        -8.784695
-        + 1.61139411 * temperature
-        + 2.338549 * humidity
-        - 0.14611605 * temperature * humidity
-        - 0.012308094 * (temperature**2)
-        - 0.016424828 * (humidity**2)
-        + 0.002211732 * (temperature**2) * humidity
-        + 0.00072546 * temperature * (humidity**2)
-        - 0.000003582 * (temperature**2) * (humidity**2)
+    # Rothfusz regression used by the U.S. National Weather Service.
+    hi = (
+        -42.379
+        + 2.04901523 * t
+        + 10.14333127 * rh
+        - 0.22475541 * t * rh
+        - 6.83783e-3 * t**2
+        - 5.481717e-2 * rh**2
+        + 1.22874e-3 * t**2 * rh
+        + 8.5282e-4 * t * rh**2
+        - 1.99e-6 * t**2 * rh**2
     )
+
+    # NWS corrections for the edges of the regression's valid range.
+    if rh < 13 and t <= 112:
+        hi -= ((13 - rh) / 4) * math.sqrt((17 - abs(t - 95)) / 17)
+    elif rh > 85 and t <= 87:
+        hi += ((rh - 85) / 10) * ((87 - t) / 5)
+
+    # In hot conditions it should never feel cooler than the air temperature.
+    hi = max(hi, t)
+
+    return round((hi - 32) * 5 / 9, 1)
 
 
 DERIVED_METRICS = (
