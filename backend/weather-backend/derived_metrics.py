@@ -60,7 +60,7 @@ def calculate_real_temperature(temperature: float, humidity: float) -> float:
     Returns:
         The estimated perceived temperature in degrees Celsius.
     """
-    if temperature < 20:
+    if temperature < 10:
         return temperature
 
     return (
