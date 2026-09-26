@@ -1,0 +1,3 @@
+[submodule "forecast/data/weather-data"]
+	path = forecast/data/weather-data
+	url = git@github.com:vincenteichhorn/dresden-weather-dataset.git
