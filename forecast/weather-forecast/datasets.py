@@ -32,6 +32,43 @@ class WeatherDataset(Dataset):
     SERIES_SHORT_MAP = {"temp": "temperature", "bar": "pressure", "hum": "humidity"}
     MAX_INTERPOLATION_GAP = 3
     VALID_RANGES: Dict[str, tuple] = {}
+    DERIVED_FEATURES = (
+        "pressure_delta_3h",
+        "pressure_delta_24h",
+        "dew_point",
+        "specific_humidity",
+    )
+
+    @staticmethod
+    def _compute_derived_features(
+        weather_frame: pd.DataFrame,
+        derived_features: Sequence[str],
+    ) -> pd.DataFrame:
+        """Compute causal weather features from the aligned base channels."""
+        invalid = set(derived_features) - set(WeatherDataset.DERIVED_FEATURES)
+        if invalid:
+            raise ValueError(
+                "derived_features must contain only " + ", ".join(WeatherDataset.DERIVED_FEATURES)
+            )
+
+        features = {}
+        pressure = weather_frame["pressure"]
+        if "pressure_delta_3h" in derived_features:
+            features["pressure_delta_3h"] = pressure - pressure.shift(3)
+        if "pressure_delta_24h" in derived_features:
+            features["pressure_delta_24h"] = pressure - pressure.shift(24)
+
+        temperature = weather_frame["temperature"]
+        humidity = weather_frame["humidity"].clip(lower=1e-6, upper=100.0)
+        gamma = np.log(humidity / 100.0) + 17.62 * temperature / (243.12 + temperature)
+        dew_point = 243.12 * gamma / (17.62 - gamma)
+        vapor_pressure = 6.112 * np.exp(gamma)
+        specific_humidity = (0.622 * vapor_pressure) / (pressure - vapor_pressure)
+        if "dew_point" in derived_features:
+            features["dew_point"] = dew_point
+        if "specific_humidity" in derived_features:
+            features["specific_humidity"] = specific_humidity
+        return pd.DataFrame(features, index=weather_frame.index)
 
     @staticmethod
     def _compute_additional_features(
@@ -59,6 +96,7 @@ class WeatherDataset(Dataset):
     def build_prediction_sample(
         measured_sequence: pd.DataFrame,
         time_features: Sequence[str] = ("hour", "day_of_year"),
+        derived_features: Sequence[str] = (),
         dtype=np.float32,
     ) -> np.ndarray:
         """Converts a measured temp/bar/hum sequence to a dataset input matrix.
@@ -77,13 +115,25 @@ class WeatherDataset(Dataset):
             if measured_sequence.ndim != 2:
                 raise ValueError("measured_sequence must be a 2D array")
 
-            positions = np.arange(len(measured_sequence))
-            additional = []
-            if "hour" in time_features:
-                additional.append(np.sin(2 * np.pi * positions / 24))
-            if "day_of_year" in time_features:
-                additional.append(np.sin(2 * np.pi * positions / 365))
-            return np.column_stack((measured_sequence, *additional)).astype(dtype, copy=False)
+            if measured_sequence.shape[1] < len(WeatherDataset.SERIES_SUBSET):
+                raise ValueError("measured_sequence must contain the three weather channels")
+            if not derived_features:
+                positions = np.arange(len(measured_sequence))
+                additional = []
+                if "hour" in time_features:
+                    additional.append(np.sin(2 * np.pi * positions / 24))
+                if "day_of_year" in time_features:
+                    additional.append(np.sin(2 * np.pi * positions / 365))
+                return np.column_stack((measured_sequence, *additional)).astype(dtype, copy=False)
+            timestamps = pd.date_range("2000-01-01", periods=len(measured_sequence), freq="h")
+            matrix = pd.DataFrame(
+                measured_sequence[:, : len(WeatherDataset.SERIES_SUBSET)],
+                columns=WeatherDataset.SERIES_SUBSET,
+                index=timestamps,
+            )
+            derived = WeatherDataset._compute_derived_features(matrix, derived_features)
+            additional = WeatherDataset._compute_additional_features(timestamps, time_features)
+            return pd.concat([matrix, derived, additional], axis=1).to_numpy(dtype=dtype)
 
         if not isinstance(measured_sequence, pd.DataFrame):
             raise TypeError("measured_sequence must be a pandas DataFrame or NumPy array")
@@ -113,8 +163,9 @@ class WeatherDataset(Dataset):
             columns[name] = measured_sequence[source].to_numpy()
 
         matrix = pd.DataFrame(columns, index=pd.DatetimeIndex(pd.to_datetime(timestamps)))
+        derived = WeatherDataset._compute_derived_features(matrix, derived_features)
         additional = WeatherDataset._compute_additional_features(matrix.index, time_features)
-        return pd.concat([matrix, additional], axis=1).to_numpy(dtype=dtype)
+        return pd.concat([matrix, derived, additional], axis=1).to_numpy(dtype=dtype)
 
     def __init__(
         self,
@@ -128,6 +179,7 @@ class WeatherDataset(Dataset):
         return_xy: bool = False,
         dtype=np.float32,
         time_features: Sequence[str] = ("hour", "day_of_year"),
+        derived_features: Sequence[str] = (),
     ):
         """
         Initializes the WeatherDataset.
@@ -162,6 +214,12 @@ class WeatherDataset(Dataset):
         self.return_xy = return_xy
         self.dtype = dtype
         self.time_features = tuple(dict.fromkeys(time_features))
+        self.derived_features = tuple(dict.fromkeys(derived_features))
+        invalid_derived_features = set(self.derived_features) - set(self.DERIVED_FEATURES)
+        if invalid_derived_features:
+            raise ValueError(
+                "derived_features must contain only " + ", ".join(self.DERIVED_FEATURES)
+            )
 
         self._oid_to_series_name: Dict[str, str] = {}
         self.series: Dict[str, pd.DataFrame] = {}
@@ -412,6 +470,7 @@ class WeatherDataset(Dataset):
             return_xy=self.return_xy,
             dtype=self.dtype,
             time_features=self.time_features,
+            derived_features=self.derived_features,
         )
         datasets = [
             WeatherDataset.from_series(self._oid_to_series_name, sr, **kwargs)
@@ -450,8 +509,9 @@ class WeatherDataset(Dataset):
         self.timestamps = grid
 
         frame = pd.DataFrame({n: indexed[n].reindex(grid) for n in names})
+        derived = self._compute_derived_features(frame, self.derived_features)
         frame = pd.concat(
-            [frame, self._compute_additional_features(grid, self.time_features)], axis=1
+            [frame, derived, self._compute_additional_features(grid, self.time_features)], axis=1
         )
         self.channels = list(frame.columns)
         return frame.to_numpy(dtype=np.float64)
