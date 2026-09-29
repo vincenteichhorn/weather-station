@@ -98,13 +98,31 @@ async def get_report(db: AsyncIOMotorDatabase, start_date: datetime = None, end_
     report: dict[str, list[MeasurementEntry]] = {}
     for series_id, series_entry in series.items():
         pipeline = [
-            {"$match": {"series": series_id, "date": {"$gte": start_date, "$lte": end_date}}},
+            {
+                "$match": {
+                    "series": series_id,
+                    "date": {"$gte": start_date, "$lte": end_date},
+                }
+            },
+            {
+                "$set": {
+                    "numeric_value": {
+                        "$convert": {
+                            "input": "$value",
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    }
+                }
+            },
+            {"$match": {"numeric_value": {"$ne": None}}},
             {
                 "$group": {
                     "_id": None,
-                    "min_value": {"$min": "$value"},
-                    "max_value": {"$max": "$value"},
-                    "avg_value": {"$avg": "$value"},
+                    "min_value": {"$min": "$numeric_value"},
+                    "max_value": {"$max": "$numeric_value"},
+                    "avg_value": {"$avg": "$numeric_value"},
                 }
             },
         ]
@@ -233,6 +251,6 @@ async def add_weather_entry(db: AsyncIOMotorDatabase, weather_entry: dict):
     for series_id, series_entry in series.items():
         for short in series_entry.shorts:
             if short in weather_entry:
-                new_entry: WeatherEntry = {"series": series_id, "date": current_time, "value": weather_entry[short]}
+                new_entry: WeatherEntry = {"series": series_id, "date": current_time, "value": float(weather_entry[short])}
                 weather_collection = db["weather"]
                 await weather_collection.insert_one(new_entry)
