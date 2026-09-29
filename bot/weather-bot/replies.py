@@ -186,17 +186,19 @@ async def retrieve_24h_weather_plot(update: Update, context: ContextTypes):
             solid_capstyle="round",
             solid_joinstyle="round",
         )
+        axis.margins(y=0.18)
+        lower_axis_limit, upper_axis_limit = axis.get_ylim()
         axis.fill_between(
             dates,
             values,
-            min(values),
+            lower_axis_limit,
             color=colors[index % len(colors)],
             alpha=0.08,
         )
+        axis.set_ylim(lower_axis_limit, upper_axis_limit)
         minimum_index = values.index(min(values))
         maximum_index = values.index(max(values))
         marker_color = colors[index % len(colors)]
-        axis.margins(y=0.18)
         axis.scatter(
             [dates[minimum_index]],
             [values[minimum_index]],
