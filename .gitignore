@@ -4,3 +4,5 @@ backend/.env
 backend/.vscode
 
 bot/.env
+
+**/__pycache__
