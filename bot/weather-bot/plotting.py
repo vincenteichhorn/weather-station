@@ -256,6 +256,50 @@ def create_forecast_plot(plots, start_date, forecast_start, end_date, title, sun
                 },
             )
 
+        forecast_minimum_index = forecast_values.index(min(forecast_values))
+        forecast_maximum_index = forecast_values.index(max(forecast_values))
+        axis.scatter(
+            [forecast_dates[forecast_minimum_index]],
+            [forecast_values[forecast_minimum_index]],
+            color="#ffffff",
+            edgecolor=color,
+            linewidth=2,
+            marker="v",
+            s=80,
+            zorder=5,
+        )
+        axis.scatter(
+            [forecast_dates[forecast_maximum_index]],
+            [forecast_values[forecast_maximum_index]],
+            color=color,
+            edgecolor="#ffffff",
+            linewidth=1.5,
+            marker="^",
+            s=70,
+            zorder=5,
+        )
+        for value_index, y_offset, vertical_alignment in (
+            (forecast_minimum_index, -10, "top"),
+            (forecast_maximum_index, 10, "bottom"),
+        ):
+            axis.annotate(
+                f"{forecast_values[value_index]:.2f} {unit}",
+                (forecast_dates[value_index], forecast_values[value_index]),
+                xytext=(0, y_offset),
+                textcoords="offset points",
+                ha="center",
+                va=vertical_alignment,
+                fontsize=10,
+                fontweight="bold",
+                color=color,
+                bbox={
+                    "boxstyle": "round,pad=0.25",
+                    "facecolor": "white",
+                    "edgecolor": "none",
+                    "alpha": 0.85,
+                },
+            )
+
         lines.append(line)
         labels.append(name)
         axis.set_ylabel(f"{name} ({unit})", color=color, fontsize=14)
