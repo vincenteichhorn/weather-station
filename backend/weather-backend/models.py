@@ -47,3 +47,13 @@ class MeasurementEntry(BaseModel):
     unit: str
     date: datetime
     value: float
+
+
+class ForecastEntry(BaseModel):
+    """Weather forecast value enriched with the series name and unit."""
+
+    name: str
+    unit: str
+    date: datetime
+    value: float
+    uncertainty: float

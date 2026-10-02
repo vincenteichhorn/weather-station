@@ -6,7 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from endpoints import health, series, weather
 
-from models import MeasurementEntry, SeriesEntry, SuccessResponse, HealthInfo
+from models import ForecastEntry, MeasurementEntry, SeriesEntry, SuccessResponse, HealthInfo
 
 router = APIRouter()
 
@@ -43,6 +43,16 @@ async def read_latest_weather(request: Request):
     """Return the latest value for every available series."""
     db = request.app.mongodb
     return await weather.get_latest(db)
+
+
+@router.get("/weather/forecast", response_model=dict[str, list[ForecastEntry]])
+async def read_weather_forecast(request: Request):
+    """Return the configured forecast horizon from the latest hourly data."""
+    return await weather.get_forecast(
+        request.app.mongodb,
+        request.app.forecast_model,
+        request.app.forecast_model_config,
+    )
 
 
 @router.get("/weather/report", response_model=dict[str, list[MeasurementEntry]])

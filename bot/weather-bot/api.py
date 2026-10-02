@@ -55,6 +55,16 @@ def get_series_measurements(series_short, start_date, end_date):
     )
 
 
+def get_forecast():
+    api_url = os.getenv("WEATHER_API_URL")
+    if not api_url:
+        raise ValueError("WEATHER_API_URL is not set in the environment variables.")
+    response = requests.get(f"{api_url}/weather/forecast")
+    if response.status_code == 200:
+        return response.json()
+    raise Exception(f"Failed to fetch forecast: {response.status_code} - {response.text}")
+
+
 def get_sunrise_sunset():
     location = os.getenv("LOCATION")
     if not location:

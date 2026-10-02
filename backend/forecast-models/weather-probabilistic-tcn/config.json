@@ -1,0 +1,104 @@
+{
+  "model_class": "WeatherProbabilisticTCN",
+  "lookback": 96,
+  "horizon": 24,
+  "hidden_channels": 16,
+  "kernel_size": 3,
+  "levels": 4,
+  "dilations": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "receptive_field": 61,
+  "dropout": 0.0,
+  "min_std": [
+    0.02136910893023014,
+    0.04447770118713379,
+    0.041443198919296265,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582,
+    0.009999999776482582
+  ],
+  "physical_min_std": [
+    0.20000000298023224,
+    0.4000000059604645,
+    0.800000011920929
+  ],
+  "normalization": {
+    "enabled": true,
+    "means": [
+      10.700841427006658,
+      1012.8188694611721,
+      70.66227170176951,
+      -0.0002515661472922116,
+      -0.01404959192153023,
+      4.740509374231214,
+      0.005817358104921227,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "stds": [
+      9.359304015413294,
+      8.993270767148687,
+      19.3035294585536,
+      1.1068504513662327,
+      5.8665641842601985,
+      6.612089346225451,
+      0.0025910138751435016,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "channels": [
+    "temperature",
+    "pressure",
+    "humidity",
+    "pressure_delta_3h",
+    "pressure_delta_24h",
+    "dew_point",
+    "specific_humidity",
+    "hour_sin",
+    "hour_cos",
+    "day_of_year_sin",
+    "day_of_year_cos"
+  ],
+  "target_variables": [
+    "temperature",
+    "pressure",
+    "humidity"
+  ],
+  "task_log_variances": [
+    -2.014058828353882,
+    -2.0141408443450928,
+    -2.0117430686950684
+  ],
+  "task_log_variance_bounds": [
+    -2.0,
+    3.0
+  ],
+  "time_features": [
+    "hour",
+    "day_of_year"
+  ],
+  "derived_features": [
+    "pressure_delta_3h",
+    "pressure_delta_24h",
+    "dew_point",
+    "specific_humidity"
+  ],
+  "data_dir": "data/weather-data",
+  "selection_metric": "mean_relative_mae_to_24h_persistence",
+  "selection_value": 0.6737346725660199,
+  "best_epoch": 12
+}

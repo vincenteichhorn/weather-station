@@ -4,9 +4,13 @@ from datetime import datetime, timedelta
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+import numpy as np
+import pandas as pd
+import torch
 
 from derived_metrics import DERIVED_METRICS, DERIVED_METRICS_BY_SHORT, DerivedMetric
-from models import MeasurementEntry, SeriesEntry, WeatherEntry
+from weather_forecast.datasets import WeatherDataset
+from models import ForecastEntry, MeasurementEntry, SeriesEntry, WeatherEntry
 
 VALID_DENSITIES = {"raw", "daily", "weekly", "monthly"}
 
@@ -291,6 +295,108 @@ async def _get_derived_series_measurements(
         for date, values in sorted(measurements_by_date.items())
         if "temp" in values and "hum" in values and values["temp"] and values["hum"]
     ]
+
+
+
+async def get_forecast(
+    db: AsyncIOMotorDatabase,
+    model: torch.nn.Module,
+    model_config: dict,
+) -> dict[str, list[ForecastEntry]]:
+    """Predict the configured horizon from the latest hourly measurements."""
+    lookback = int(model_config["lookback"])
+    horizon = int(model_config["horizon"])
+    channels = model_config["channels"]
+    target_variables = model_config["target_variables"]
+    time_features = model_config.get("time_features", [])
+    derived_features = model_config.get("derived_features", [])
+
+    series_entries = await db["series"].find().to_list(length=None)
+    short_to_series: dict[str, dict] = {}
+    for series_entry in series_entries:
+        for short in series_entry["shorts"]:
+            if short not in short_to_series:
+                short_to_series[short] = series_entry
+
+    source_series: dict[str, dict] = {}
+    for target in target_variables:
+        source_short = next(
+            (
+                short
+                for short, channel in WeatherDataset.SERIES_SHORT_MAP.items()
+                if channel == target
+            ),
+            None,
+        )
+        if source_short is None or source_short not in short_to_series:
+            raise ValueError(f"Forecast series for '{target}' is not available in the database.")
+        source_series[target] = short_to_series[source_short]
+
+    latest_rows: dict[str, list[dict]] = {}
+    for channel, series_entry in source_series.items():
+        cursor = db["weather"].find(
+            {"series": series_entry["_id"]},
+            projection={"_id": False, "date": True, "value": True},
+        ).sort("date", -1).limit(lookback * 24)
+        latest_rows[channel] = [row async for row in cursor]
+
+    frames = {}
+    for channel, rows in latest_rows.items():
+        if not rows:
+            raise ValueError(f"No measurements found for the '{channel}' series.")
+        frame = pd.DataFrame(rows)
+        frame["date"] = pd.to_datetime(frame["date"])
+        frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+        frames[channel] = (
+            frame.dropna(subset=["date", "value"])
+            .set_index("date")["value"]
+            .sort_index()
+            .resample("1h")
+            .mean()
+        )
+
+    measured = pd.concat(
+        [frames[channel] for channel in target_variables],
+        axis=1,
+        keys=target_variables,
+    ).dropna()
+    if len(measured) < lookback:
+        raise ValueError(f"Forecast requires {lookback} complete hourly measurements.")
+    measured = measured.iloc[-lookback:]
+    measured.index.name = "timestamp"
+    sample = WeatherDataset.build_prediction_sample(
+        measured.reset_index(),
+        time_features=time_features,
+        derived_features=derived_features,
+    )
+    expected_channels = ["temperature", "pressure", "humidity", *derived_features]
+    for time_feature in time_features:
+        expected_channels.extend((f"{time_feature}_sin", f"{time_feature}_cos"))
+    if list(channels) != expected_channels:
+        raise ValueError("Forecast model channels do not match the configured input features.")
+    inputs = torch.from_numpy(np.asarray(sample, dtype=np.float32)).unsqueeze(0)
+    with torch.no_grad():
+        means, log_variances = model(inputs)
+    means = means[0].cpu().numpy()
+    uncertainties = torch.exp(0.5 * log_variances[0]).cpu().numpy()
+    forecast_dates = pd.date_range(
+        measured.index[-1] + pd.Timedelta(hours=1), periods=horizon, freq="h"
+    )
+
+    result: dict[str, list[ForecastEntry]] = {}
+    for target_index, target in enumerate(target_variables):
+        series_entry = source_series[target]
+        result[target] = [
+            ForecastEntry(
+                name=series_entry["name"],
+                unit=series_entry["unit"],
+                date=date.to_pydatetime(),
+                value=float(means[step, target_index]),
+                uncertainty=float(uncertainties[step, target_index]),
+            )
+            for step, date in enumerate(forecast_dates)
+        ]
+    return result
 
 
 async def add_weather_entry(db: AsyncIOMotorDatabase, weather_entry: dict):
