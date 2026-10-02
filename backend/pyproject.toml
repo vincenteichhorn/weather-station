@@ -13,8 +13,17 @@ dependencies = [
     "python-dotenv (>=1.2.3,<2.0.0)",
     "motor (>=3.7.1,<4.0.0)",
     "python-multipart (>=0.0.32,<0.0.33)",
-    "weather-forecast @ ../forecast"
+    "weather-forecast @ ../forecast",
+    "torch"
 ]
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+torch = { source = "pytorch-cpu" }
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
