@@ -7,6 +7,24 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+SERIES_COLORS = {
+    "Temperatur": "#1769aa",
+    "Luftdruck": "#d97706",
+    "Luftfeuchtigkeit": "#16803c",
+    "Helligkeit": "#7c3aed",
+    "Taupunkt": "#0891b2",
+    "Absolute Feuchtigkeit": "#be123c",
+    "Gefühlte Temperatur": "#9333ea",
+}
+
+
+def series_color(series_name: str) -> str:
+    """Return a stable color for a weather series across all charts."""
+    if series_name in SERIES_COLORS:
+        return SERIES_COLORS[series_name]
+    palette = ("#1769aa", "#d97706", "#16803c", "#7c3aed", "#0891b2", "#be123c")
+    return palette[sum(ord(character) for character in series_name) % len(palette)]
+
 
 def render_header() -> None:
     st.title("Wetterstation")
@@ -51,6 +69,7 @@ def render_chart(measurements: list[dict], series_names: list[str]) -> None:
         x="date",
         y="value",
         color="name",
+        color_discrete_map={str(name): series_color(str(name)) for name in series_units},
         custom_data=["unit"],
         labels={"date": "Zeitpunkt", "value": "Messwert", "name": "Messreihe"},
     )
@@ -71,9 +90,14 @@ def render_chart(measurements: list[dict], series_names: list[str]) -> None:
             ),
             "overlaying": "y" if axis_number > 1 else None,
             "side": "left" if is_left else "right",
-            "position": (0.02 + (index // 2) * 0.06) if is_left else (0.98 - (index // 2) * 0.06),
             "anchor": "free" if axis_number > 1 else "x",
+            "autoshift": axis_number > 1,
+            "shift": (
+                (-10 if is_left else 10) * (index // 2 + 1) if axis_number > 1 else 0
+            ),
             "showgrid": axis_number == 1,
+            "showline": True,
+            "automargin": True,
         }
 
     for trace in figure.data:
@@ -82,10 +106,19 @@ def render_chart(measurements: list[dict], series_names: list[str]) -> None:
     figure.update_layout(
         title=" / ".join(series_names),
         hovermode="x unified",
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
+        margin={"l": 100, "r": 100, "t": 55, "b": 70},
         height=420,
+        legend={
+            "orientation": "h",
+            "x": 0.5,
+            "xanchor": "center",
+            "y": -0.2,
+            "yanchor": "top",
+            "title": {"text": ""},
+        },
         **axis_layout,
     )
+    figure.update_xaxes(title_text="")
     figure.update_traces(
         line={"width": 2.5},
         hovertemplate="%{y:.2f} %{customdata[0]}<extra>%{fullData.name}</extra>",
@@ -109,7 +142,6 @@ def render_forecast_chart(
     frame["date"] = pd.to_datetime(frame["date"], format="ISO8601")
     frame["value"] = pd.to_numeric(frame["value"])
     series_units = frame.groupby("name", sort=False)["unit"].first().to_dict()
-    colors = ("#1769aa", "#d97706", "#16803c")
     figure = go.Figure()
     axis_by_name = {}
 
@@ -120,7 +152,7 @@ def render_forecast_chart(
         axis_reference = "y" if axis_number == 1 else f"y{axis_number}"
         axis_name = "yaxis" if axis_number == 1 else f"yaxis{axis_number}"
         axis_by_name[series_name] = axis_reference
-        color = colors[index % len(colors)]
+        color = series_color(series_name)
         measured = frame[frame["name"] == series_name]
         figure.add_trace(
             go.Scatter(
@@ -222,11 +254,14 @@ def render_forecast_chart(
                     "title": f"{series_name} ({series_units[series_name]})",
                     "overlaying": "y" if axis_number > 1 else None,
                     "side": "left" if is_left else "right",
-                    "position": (
-                        (0.02 + (index // 2) * 0.06) if is_left else (0.98 - (index // 2) * 0.06)
-                    ),
                     "anchor": "free" if axis_number > 1 else "x",
+                    "autoshift": axis_number > 1,
+                    "shift": (
+                        (-10 if is_left else 10) * (index // 2 + 1) if axis_number > 1 else 0
+                    ),
                     "showgrid": axis_number == 1,
+                    "showline": True,
+                    "automargin": True,
                 }
             }
         )
@@ -234,9 +269,15 @@ def render_forecast_chart(
     figure.update_layout(
         title=" / ".join(series_names),
         hovermode="x unified",
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
+        margin={"l": 100, "r": 100, "t": 55, "b": 70},
         height=420,
-        legend={"orientation": "h"},
+        legend={
+            "orientation": "h",
+            "x": 0.5,
+            "xanchor": "center",
+            "y": -0.2,
+            "yanchor": "top",
+        },
     )
     if forecast:
         forecast_dates = [

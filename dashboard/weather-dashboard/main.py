@@ -117,9 +117,7 @@ def main() -> None:
         for name, entry in series_by_name.items()
         if set(entry.get("shorts", [])) & {"temp", "bar", "hum"}
     }
-    forecast_defaults = [
-        name for name in selected_names if name in forecast_series_by_name
-    ]
+    forecast_defaults = [name for name in selected_names if name in forecast_series_by_name]
     forecast_names = forecast_controls[0].multiselect(
         "Messreihen",
         list(forecast_series_by_name),
