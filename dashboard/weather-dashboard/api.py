@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
+from datetime import date, datetime
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -41,15 +41,39 @@ class WeatherApi:
             raise WeatherApiError("The latest weather response has an unexpected format")
         return response
 
-    def get_measurements(self, series_short: str, start_date: date, end_date: date, density: str = "raw") -> list[dict]:
+    def get_measurements(
+        self,
+        series_short: str,
+        start_date: date | datetime,
+        end_date: date | datetime,
+        density: str = "raw",
+    ) -> list[dict]:
+        def format_date(value: date | datetime, end: bool = False) -> str:
+            if isinstance(value, datetime):
+                return value.isoformat()
+            return f"{value.isoformat()}T{'23:59:59' if end else '00:00:00'}"
+
         response = self._get(
             f"weather/{series_short}",
             {
-                "start_date": f"{start_date.isoformat()}T00:00:00",
-                "end_date": f"{end_date.isoformat()}T23:59:59",
+                "start_date": format_date(start_date),
+                "end_date": format_date(end_date, end=True),
                 "density": density,
             },
         )
         if not isinstance(response, list):
             raise WeatherApiError("The measurements response has an unexpected format")
+        return response
+
+    def get_forecast(self) -> dict[str, list[dict]]:
+        response = self._get("weather/forecast")
+        if not isinstance(response, dict):
+            raise WeatherApiError("The forecast response has an unexpected format")
+        return response
+
+    def get_historical_forecast(self, reference_time: str | None = None) -> dict[str, list[dict]]:
+        params = {"reference_time": reference_time} if reference_time else None
+        response = self._get("weather/forecast/historical", params)
+        if not isinstance(response, dict):
+            raise WeatherApiError("The historical forecast response has an unexpected format")
         return response

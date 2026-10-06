@@ -1,6 +1,6 @@
 """HTTP routes for the weather station API."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Request
@@ -52,6 +52,20 @@ async def read_weather_forecast(request: Request):
         request.app.mongodb,
         request.app.forecast_model,
         request.app.forecast_model_config,
+    )
+
+
+@router.get("/weather/forecast/historical", response_model=dict[str, list[ForecastEntry]])
+async def read_historical_weather_forecast(
+    request: Request,
+    reference_time: datetime | None = None,
+):
+    """Return a forecast generated from measurements available at a past time."""
+    return await weather.get_forecast(
+        request.app.mongodb,
+        request.app.forecast_model,
+        request.app.forecast_model_config,
+        reference_time or datetime.now() - timedelta(hours=24),
     )
 
 

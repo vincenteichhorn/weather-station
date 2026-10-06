@@ -302,8 +302,10 @@ async def get_forecast(
     db: AsyncIOMotorDatabase,
     model: torch.nn.Module,
     model_config: dict,
+    reference_time: datetime | None = None,
 ) -> dict[str, list[ForecastEntry]]:
     """Predict the configured horizon from the latest hourly measurements."""
+    reference_time = reference_time or datetime.now()
     lookback = int(model_config["lookback"])
     horizon = int(model_config["horizon"])
     channels = model_config["channels"]
@@ -334,8 +336,9 @@ async def get_forecast(
 
     latest_rows: dict[str, list[dict]] = {}
     for channel, series_entry in source_series.items():
+        query = {"series": series_entry["_id"], "date": {"$lte": reference_time}}
         cursor = db["weather"].find(
-            {"series": series_entry["_id"]},
+            query,
             projection={"_id": False, "date": True, "value": True},
         ).sort("date", -1).limit(lookback * 24)
         latest_rows[channel] = [row async for row in cursor]
